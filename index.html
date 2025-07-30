@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PeerCollab - Serverless P2P Collaboration</title>
+  <script src="https://unpkg.com/peerjs@1.3.2/dist/peerjs.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
+  <style>
+    :root {
+      --primary: #2962ff;
+      --primary-dark: #0039cb;
+      --secondary: #00b8d4;
+      --success: #00c853;
+      --warning: #ffab00;
+      --error: #dd2c00;
+      --light: #f5f7fa;
+      --dark: #263238;
+    }
+    
+    body {
+      font-family: 'Red Hat Display', sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+      color: var(--dark);
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .header {
+      background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+      color: white;
+      padding: 15px 0;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    
+    .logo {
+      display: flex;
+      align-items: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+    
+    .logo i {
+      margin-right: 10px;
+    }
+    
+    .card {
+      background: white;
+      padding: 25px;
+      margin: 15px 0;
+      border-radius: 12px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+    }
+    
+    #chatbox {
+      height: 300px;
+      overflow-y: auto;
+      border: 1px solid #e0e0e0;
+      padding: 15px;
+      background: #fafafa;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+    
+    .section-title {
+      font-size: 1.5rem;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--primary);
+      color: var(--primary-dark);
+      display: flex;
+      align-items: center;
+    }
+    
+    .section-title i {
+      margin-right: 10px;
+    }
+    
+    .screen {
+      display: none;
+      animation: fadeIn 0.5s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .active-screen {
+      display: block;
+    }
+    
+    .lobby-id-container {
+      background: #e3f2fd;
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .lobby-id-row {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .lobby-id-label {
+      font-weight: bold;
+      margin-right: 15px;
+      color: var(--primary-dark);
+      font-size: 1.1rem;
+    }
+    
+    .lobby-id-value {
+      font-family: monospace;
+      font-size: 1.2rem;
+      color: var(--primary);
+      word-break: break-all;
+      flex-grow: 1;
+    }
+    
+    .copy-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.3s;
+      display: flex;
+      align-items: center;
+    }
+    
+    .copy-btn:hover {
+      background: var(--primary-dark);
+    }
+    
+    .copy-btn i {
+      margin-right: 5px;
+    }
+    
+    .copied-message {
+      color: var(--success);
+      font-size: 0.9rem;
+      margin-top: 10px;
+      display: none;
+    }
+    
+    .connection-status {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+      background: #ccc;
+    }
+    
+    .status-connected {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+    
+    .participants-list {
+      margin-top: 20px;
+      width: 100%;
+    }
+    
+    .participant-card {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .participant-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 12px;
+      font-weight: bold;
+    }
+    
+    .btn {
+      background: var(--primary);
+      transition: all 0.3s;
+    }
+    
+    .btn:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .btn-secondary {
+      background: var(--secondary);
+    }
+    
+    .btn-secondary:hover {
+      background: #0091a8;
+    }
+    
+    .input-field input:focus {
+      border-bottom: 2px solid var(--primary) !important;
+      box-shadow: 0 1px 0 0 var(--primary) !important;
+    }
+    
+    .question-card {
+      background: #fff8e1;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+    
+    .question-text {
+      font-weight: 500;
+      margin-bottom: 10px;
+      color: var(--dark);
+    }
+    
+    @media (max-width: 768px) {
+      .header-content {
+        flex-direction: column;
+        text-align: center;
+      }
+      
+      .lobby-id-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .lobby-id-value {
+        margin: 10px 0;
+        width: 100%;
+      }
+      
+      .copy-btn {
+        width: 100%;
+        margin-top: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-content">
+      <div class="logo">
+        <i class="material-icons">group_work</i>
+        <span>PeerCollab</span>
+      </div>
+      <div id="connectionInfo" style="display: none;">
+        <span class="connection-status" id="connectionStatus"></span>
+        <span id="statusText">Connecting...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login Screen -->
+  <div id="loginScreen" class="container screen active-screen">
+    <div class="card">
+      <h4 class="center-align">Join Collaboration Session</h4>
+      <div class="input-field">
+        <input id="username" type="text" />
+        <label for="username">Your Name</label>
+      </div>
+      <div class="center-align">
+        <button id="continueBtn" class="btn waves-effect waves-light">
+          Continue <i class="material-icons right">arrow_forward</i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lobby Screen -->
+  <div id="lobbyScreen" class="container screen">
+    <div class="card">
+      <h4 class="center-align section-title">
+        <i class="material-icons">meeting_room</i>Session Lobby
+      </h4>
+      <div class="row">
+        <div class="col s12 m6 center-align">
+          <button id="createLobbyBtn" class="btn waves-effect waves-light">
+            <i class="material-icons left">add</i> Create New Lobby
+          </button>
+        </div>
+        <div class="col s12 m6 center-align">
+          <button id="joinManualBtn" class="btn btn-secondary waves-effect waves-light">
+            <i class="material-icons left">login</i> Join Lobby
+          </button>
+        </div>
+      </div>
+      <div class="input-field">
+        <input id="manualLobbyId" type="text" placeholder="Enter Lobby ID" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Collaboration Screen -->
+  <div id="collabScreen" class="container screen">
+    <div class="card lobby-id-container">
+      <div class="lobby-id-row">
+        <span class="lobby-id-label">Lobby ID:</span>
+        <span class="lobby-id-value" id="lobbyIdDisplay"></span>
+        <button id="copyLobbyIdBtn" class="copy-btn">
+          <i class="material-icons">content_copy</i> Copy ID
+        </button>
+      </div>
+      <div class="copied-message" id="copiedMessage">
+        <i class="material-icons">check</i> Copied to clipboard!
+      </div>
+      
+      <div class="participants-list">
+        <h6>Participants (<span id="participantCount">1</span>)</h6>
+        <div id="participantsContainer"></div>
+      </div>
+    </div>
+    
+    <div class="row">
+      <!-- Chat Section -->
+      <div class="col s12 m4">
+        <div class="card">
+          <h5 class="section-title">
+            <i class="material-icons">chat</i>Chat
+          </h5>
+          <div id="chatbox"></div>
+          <div class="input-field">
+            <input id="messageInput" placeholder="Type message..." />
+          </div>
+        </div>
+      </div>
+
+      <!-- Q&A Section -->
+      <div class="col s12 m8">
+        <div class="card">
+          <h5 class="section-title">
+            <i class="material-icons">live_help</i>Q&A Session
+          </h5>
+          <div id="hostQuestions" style="display: none;">
+            <div class="input-field">
+              <textarea id="newQuestion" class="materialize-textarea" placeholder="Add new question..."></textarea>
+              <button id="addQuestionBtn" class="btn waves-effect">
+                <i class="material-icons left">add</i>Add Question
+              </button>
+            </div>
+          </div>
+
+          <div class="question-card">
+            <h6>Current Question:</h6>
+            <p id="questionText" class="question-text">No active question</p>
+            <div id="answerSection" style="display: none;">
+              <input id="userAnswer" placeholder="Your answer..." />
+              <button id="submitAnswerBtn" class="btn waves-effect">
+                <i class="material-icons left">send</i>Submit
+              </button>
+            </div>
+          </div>
+
+          <div class="questions-list">
+            <h6>Questions Pool (<span id="questionCount">0</span>)</h6>
+            <ul id="questionsList" class="collection"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let peer = null;
+    let currentPeerId = '';
+    let isHost = false;
+    let connections = {};
+    let currentQuestion = null;
+    let lobbyId = '';
+    let participants = {};
+
+    // Debugging function
+    function debugLog(message, data = null) {
+      console.log(`[DEBUG][${new Date().toISOString()}] ${message}`, data);
+    }
+
+    // Screen management
+    function showScreen(screenId) {
+      debugLog(`Showing screen: ${screenId}`);
+      document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active-screen');
+      });
+      const targetScreen = document.getElementById(screenId);
+      if (targetScreen) {
+        targetScreen.classList.add('active-screen');
+      }
+    }
+
+    // Initialize PeerJS
+    function initializePeer() {
+      debugLog("Initializing PeerJS");
+      const username = document.getElementById('username').value.trim();
+      
+      if (!username) {
+        alert('Please enter your name');
+        return;
+      }
+
+      try {
+        // Create peer with username as ID (replace spaces)
+        peer = new Peer(username.replace(/\s+/g, '-'));
+        
+        peer.on('open', id => {
+          debugLog("Peer connection opened", { id });
+          currentPeerId = id;
+          document.getElementById('connectionInfo').style.display = 'block';
+          document.getElementById('connectionStatus').className = 'connection-status status-connected';
+          document.getElementById('statusText').textContent = 'Connected';
+          showScreen('lobbyScreen');
+        });
+
+        peer.on('error', err => {
+          console.error("PeerJS Error:", err);
+          document.getElementById('statusText').textContent = `Error: ${err.type}`;
+          document.getElementById('connectionStatus').className = 'connection-status';
+        });
+
+        peer.on('connection', conn => {
+          debugLog("New connection received", { peer: conn.peer });
+          handleConnection(conn);
+        });
+      } catch (error) {
+        console.error("Error initializing Peer:", error);
+        alert("Failed to initialize connection. Please try again.");
+      }
+    }
+
+    // Lobby creation
+    function createLobby() {
+      debugLog("Creating lobby");
+      if (!peer) {
+        alert("Peer not initialized. Please try again.");
+        return;
+      }
+
+      isHost = true;
+      lobbyId = currentPeerId;
+      debugLog(`Lobby created with ID: ${lobbyId}`);
+      
+      // Add self as participant
+      addParticipant(currentPeerId, document.getElementById('username').value.trim());
+      
+      try {
+        // Show lobby info
+        document.getElementById('lobbyIdDisplay').textContent = lobbyId;
+        document.getElementById('hostQuestions').style.display = 'block';
+        document.getElementById('answerSection').style.display = 'none';
+        showScreen('collabScreen');
+      } catch (error) {
+        console.error("Error creating lobby:", error);
+      }
+    }
+
+    // Lobby joining
+    function joinLobby(lobbyId) {
+      debugLog("Attempting to join lobby", { lobbyId });
+      if (!peer) {
+        alert("Peer not initialized. Please try again.");
+        return;
+      }
+
+      const conn = peer.connect(lobbyId);
+
+      conn.on('error', err => {
+        console.error("Connection error:", err);
+        alert(`Connection failed: ${err.message}`);
+      });
+
+      conn.on('open', () => {
+        debugLog("Connected to lobby", { lobbyId });
+        
+        // Add self as participant
+        addParticipant(currentPeerId, document.getElementById('username').value.trim());
+        
+        handleConnection(conn);
+        document.getElementById('lobbyIdDisplay').textContent = lobbyId;
+        document.getElementById('answerSection').style.display = 'block';
+        showScreen('collabScreen');
+        
+        // Request participant list from host
+        conn.send({ type: 'requestParticipants' });
+      });
+    }
+
+    // Connection handling
+    function handleConnection(conn) {
+      debugLog("Handling new connection", { peer: conn.peer });
+      connections[conn.peer] = conn;
+
+      conn.on('data', data => {
+        debugLog("Received data", data);
+        switch (data.type) {
+          case 'chat':
+            appendMessage(data.payload);
+            if (isHost && data.payload.sender !== peer.id) {
+              broadcast(data, conn.peer);
+            }
+            break;
+          case 'question':
+            updateQuestions(data.payload);
+            break;
+          case 'answer':
+            handleAnswer(data.payload);
+            break;
+          case 'participantJoin':
+            addParticipant(data.payload.id, data.payload.name);
+            break;
+          case 'requestParticipants':
+            if (isHost) {
+              // Send current participant list to requester
+              Object.values(participants).forEach(participant => {
+                conn.send({ 
+                  type: 'participantJoin', 
+                  payload: participant 
+                });
+              });
+            }
+            break;
+          default:
+            console.warn("Unknown data type:", data.type);
+        }
+      });
+
+      conn.on('close', () => {
+        debugLog("Connection closed", { peer: conn.peer });
+        removeParticipant(conn.peer);
+        delete connections[conn.peer];
+      });
+
+      // When a new peer connects, send them the current question if host
+      if (isHost) {
+        conn.on('open', () => {
+          debugLog("Sending current question to new peer");
+          if (currentQuestion) {
+            conn.send({ type: 'question', payload: currentQuestion });
+          }
+          
+          // Notify about new participant
+          const username = document.getElementById('username').value.trim();
+          broadcast({
+            type: 'participantJoin',
+            payload: { id: conn.peer, name: username }
+          }, conn.peer);
+        });
+      }
+    }
+
+    // Add participant
+    function addParticipant(id, name) {
+      if (!participants[id]) {
+        participants[id] = { id, name };
+        updateParticipantList();
+        
+        // If this is a new participant (not self), broadcast to others
+        if (id !== currentPeerId && isHost) {
+          broadcast({
+            type: 'participantJoin',
+            payload: { id, name }
+          }, id);
+        }
+      }
+    }
+
+    // Remove participant
+    function removeParticipant(id) {
+      if (participants[id]) {
+        delete participants[id];
+        updateParticipantList();
+      }
+    }
+
+    // Update participant list UI
+    function updateParticipantList() {
+      const container = document.getElementById('participantsContainer');
+      container.innerHTML = '';
+      
+      Object.values(participants).forEach(participant => {
+        const card = document.createElement('div');
+        card.className = 'participant-card';
+        card.innerHTML = `
+          <div class="participant-avatar">${participant.name.charAt(0)}</div>
+          <div>${participant.name}</div>
+        `;
+        container.appendChild(card);
+      });
+      
+      document.getElementById('participantCount').textContent = Object.keys(participants).length;
+    }
+
+    // Chat functionality
+    function sendMessage() {
+      const messageInput = document.getElementById('messageInput');
+      const message = messageInput.value.trim();
+      if (!message) return;
+
+      const payload = {
+        sender: document.getElementById('username').value.trim(),
+        content: message,
+        timestamp: Date.now()
+      };
+
+      appendMessage(payload);
+      broadcast({ type: 'chat', payload });
+      messageInput.value = '';
+    }
+
+    function appendMessage(msg) {
+      const chatbox = document.getElementById('chatbox');
+      const messageElement = document.createElement('div');
+      messageElement.innerHTML = `<strong>${msg.sender}:</strong> ${msg.content}`;
+      chatbox.appendChild(messageElement);
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    // Question handling
+    function addQuestion() {
+      const newQuestionInput = document.getElementById('newQuestion');
+      const questionText = newQuestionInput.value.trim();
+      if (!questionText) return;
+
+      currentQuestion = {
+        id: Date.now().toString(),
+        text: questionText,
+        answers: []
+      };
+
+      updateQuestions(currentQuestion);
+      broadcast({ type: 'question', payload: currentQuestion });
+      newQuestionInput.value = '';
+    }
+
+    function updateQuestions(question) {
+      const questionsList = document.getElementById('questionsList');
+      questionsList.innerHTML = '';
+
+      const listItem = document.createElement('li');
+      listItem.className = 'collection-item';
+      listItem.textContent = question.text;
+      questionsList.appendChild(listItem);
+
+      document.getElementById('questionCount').textContent = '1';
+      document.getElementById('questionText').textContent = question.text;
+
+      if (!isHost) {
+        document.getElementById('answerSection').style.display = 'block';
+      }
+    }
+
+    function handleAnswer(payload) {
+      debugLog("Handling answer", payload);
+      if (!isHost) return;
+
+      if (currentQuestion) {
+        currentQuestion.answers.push(payload);
+        debugLog("Updated question answers", currentQuestion);
+      }
+    }
+
+    // Broadcast to all connections
+    function broadcast(data, excludePeer = null) {
+      debugLog("Broadcasting data", {
+        type: data.type,
+        connections: Object.keys(connections).length
+      });
+      Object.values(connections).forEach(conn => {
+        if (conn.open && conn.peer !== excludePeer) {
+          debugLog("Sending data to connection", { peer: conn.peer });
+          conn.send(data);
+        }
+      });
+    }
+    
+    // Copy lobby ID to clipboard
+    function copyLobbyId() {
+      if (!lobbyId) return;
+      
+      navigator.clipboard.writeText(lobbyId)
+        .then(() => {
+          const copiedMsg = document.getElementById('copiedMessage');
+          copiedMsg.style.display = 'block';
+          setTimeout(() => {
+            copiedMsg.style.display = 'none';
+          }, 2000);
+        })
+        .catch(err => {
+          console.error('Failed to copy: ', err);
+          alert('Failed to copy lobby ID to clipboard');
+        });
+    }
+
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', function () {
+      // Initialize Materialize components
+      M.AutoInit();
+      
+      // Event listeners
+      document.getElementById('continueBtn').addEventListener('click', initializePeer);
+      
+      document.getElementById('createLobbyBtn').addEventListener('click', createLobby);
+      
+      document.getElementById('joinManualBtn').addEventListener('click', () => {
+        const lobbyId = document.getElementById('manualLobbyId').value.trim();
+        if (lobbyId) {
+          joinLobby(lobbyId);
+        } else {
+          alert("Please enter a valid Lobby ID.");
+        }
+      });
+      
+      document.getElementById('messageInput').addEventListener('keypress', e => {
+        if (e.key === 'Enter') sendMessage();
+      });
+      
+      document.getElementById('addQuestionBtn').addEventListener('click', addQuestion);
+      
+      document.getElementById('submitAnswerBtn').addEventListener('click', () => {
+        const answer = document.getElementById('userAnswer').value.trim();
+        if (answer) {
+          broadcast({
+            type: 'answer',
+            payload: {
+              question: currentQuestion,
+              answer: answer,
+              user: document.getElementById('username').value.trim()
+            }
+          });
+          document.getElementById('userAnswer').value = '';
+        }
+      });
+      
+      document.getElementById('copyLobbyIdBtn').addEventListener('click', copyLobbyId);
+    });
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</body>
+</html>
